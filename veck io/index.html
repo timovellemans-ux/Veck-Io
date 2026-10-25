@@ -1,0 +1,2038 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Little Explorer — 3D Avatar</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #111522;
+        color: #f5f7ff;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        min-height: 100vh;
+        overflow: hidden;
+        background:
+          radial-gradient(ellipse at 50% 20%, rgba(67, 78, 130, .3), transparent 55%),
+          #111522;
+      }
+
+      #scene {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .topbar {
+        position: fixed;
+        inset: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px 30px;
+        pointer-events: none;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        letter-spacing: .02em;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.2);
+        border-radius: 13px;
+        background: linear-gradient(145deg, #b6a2ff, #7760ed);
+        box-shadow: 0 8px 28px rgba(119, 96, 237, .3);
+        font-size: 20px;
+        font-weight: 800;
+      }
+
+      .brand-name { font-size: 15px; font-weight: 700; }
+      .brand-subtitle { margin-top: 2px; color: #9ca4bd; font-size: 11px; }
+
+      .online {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 13px;
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 999px;
+        background: rgba(21, 26, 42, .7);
+        color: #c4cbe0;
+        font-size: 12px;
+        backdrop-filter: blur(12px);
+      }
+
+      .online-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #68e0ba;
+        box-shadow: 0 0 12px rgba(104, 224, 186, .75);
+      }
+
+      #account-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        pointer-events: auto;
+      }
+
+      #account-controls[hidden] { display: none; }
+
+      .shop-button {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border: 1px solid rgba(255,221,107,.7);
+        border-radius: 15px;
+        background: linear-gradient(145deg, #ffdc72, #ff9f58 58%, #f26f9c);
+        box-shadow: 0 5px 18px rgba(255,159,88,.3), inset 0 1px 0 rgba(255,255,255,.55);
+        color: #302044;
+        font-size: 23px;
+        line-height: 1;
+        cursor: pointer;
+        transition: transform .18s ease, box-shadow .18s ease;
+      }
+
+      .shop-button:hover {
+        transform: translateY(-3px) rotate(-5deg) scale(1.06);
+        box-shadow: 0 9px 24px rgba(255,159,88,.45), inset 0 1px 0 rgba(255,255,255,.7);
+      }
+
+      .shop-button:active { transform: scale(.94); }
+
+      .shop-button:focus-visible,
+      .icon-button:focus-visible,
+      .item-action:focus-visible,
+      .emote-action:focus-visible {
+        outline: 2px solid #ffe27b;
+        outline-offset: 3px;
+      }
+
+      .game-hud {
+        position: fixed;
+        z-index: 1;
+        inset: 0;
+        display: block;
+        pointer-events: none;
+      }
+
+      .game-hud[hidden] { display: none; }
+      .health-stat,
+      .scoreboard,
+      .player-resources {
+        position: fixed;
+        display: flex;
+        align-items: center;
+        border: 1px solid rgba(255,255,255,.14);
+        background: rgba(20, 24, 39, .84);
+        box-shadow: 0 12px 36px rgba(0,0,0,.24);
+        backdrop-filter: blur(14px);
+      }
+
+      .health-stat {
+        bottom: 108px;
+        left: 24px;
+        width: 220px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 12px 14px;
+        border-color: rgba(104,224,186,.3);
+        border-radius: 15px;
+        color: #d9dced;
+        font-size: 12px;
+      }
+
+      .health-stat > span:first-child { display: flex; justify-content: space-between; gap: 8px; }
+      .health-stat strong { color: #a9f2d9; }
+      .scoreboard {
+        top: 145px;
+        left: 50%;
+        gap: 22px;
+        padding: 11px 20px;
+        border-radius: 16px;
+        transform: translateX(-50%);
+      }
+
+      .scoreboard[hidden] { display: none; }
+
+      .score-stat { display: grid; gap: 3px; min-width: 64px; text-align: center; }
+      .score-name { color: #c4cbe0; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+      .score-stat strong { font-size: 23px; line-height: 1; }
+      .score-stat.you strong { color: #ffd85e; text-shadow: 0 0 16px rgba(255,216,94,.35); }
+      .score-stat.opponent strong { color: #c5a1ff; text-shadow: 0 0 16px rgba(197,161,255,.35); }
+      .score-divider { width: 1px; height: 30px; background: rgba(255,255,255,.16); }
+
+      .player-resources {
+        top: 145px;
+        right: 24px;
+        gap: 12px;
+        padding: 10px 13px;
+        border-radius: 14px;
+        color: #d9dced;
+        font-size: 12px;
+      }
+
+      .player-resources strong { color: #fff; }
+      .game-hud .currency { color: #f4bd78; }
+      .health-track { display: block; width: 100%; height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.12); }
+      .health-fill { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #42d69c, #9af4c8); box-shadow: 0 0 10px rgba(104,224,186,.45); transition: width .18s ease; }
+
+      .aim-dot {
+        position: fixed;
+        z-index: 1;
+        top: 50%;
+        left: 50%;
+        width: 7px;
+        height: 7px;
+        border: 1px solid rgba(255,255,255,.9);
+        border-radius: 50%;
+        background: rgba(245,247,255,.55);
+        box-shadow: 0 0 8px rgba(0,0,0,.8);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+
+      .game-panel {
+        position: fixed;
+        z-index: 4;
+        top: 50%;
+        left: 50%;
+        width: min(420px, calc(100vw - 36px));
+        max-height: min(70vh, 560px);
+        overflow: auto;
+        padding: 22px;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 20px;
+        background: rgba(24, 28, 44, .96);
+        box-shadow: 0 24px 90px rgba(0,0,0,.45);
+        transform: translate(-50%, -50%);
+        backdrop-filter: blur(18px);
+      }
+
+      .game-panel[hidden] { display: none; }
+      .game-panel h2 { margin: 0; font-size: 20px; }
+      .panel-description { margin: 7px 0 16px; color: #aeb5cb; font-size: 12px; line-height: 1.5; }
+      .shop-items { display: grid; gap: 9px; }
+
+      .shop-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 12px;
+        background: rgba(255,255,255,.04);
+      }
+
+      .shop-item-name { font-size: 13px; font-weight: 700; }
+      .shop-item-detail { margin-top: 3px; color: #aeb5cb; font-size: 11px; }
+
+      .item-action,
+      .emote-action,
+      .icon-button {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 12px;
+        background: rgba(165,138,255,.16);
+        color: #eeeaff;
+        font: inherit;
+        font-size: 19px;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .item-action:disabled { cursor: default; opacity: .65; }
+      .item-action:hover:not(:disabled),
+      .emote-action:hover,
+      .icon-button:hover { background: rgba(165,138,255,.32); transform: translateY(-2px); }
+      .emote-action { font-size: 21px; }
+      .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+      .admin-tools { display: grid; gap: 12px; }
+      .admin-key-row { display: flex; gap: 9px; }
+      .admin-key-input {
+        width: 100px;
+        padding: 9px 10px;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 10px;
+        background: rgba(255,255,255,.06);
+        color: #f5f7ff;
+        font: inherit;
+      }
+      .admin-action {
+        min-height: 38px;
+        padding: 9px 12px;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(255,216,94,.2), rgba(242,111,156,.2));
+        color: #fff2c4;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .admin-action:hover { filter: brightness(1.2); }
+      .admin-note { margin: 0; color: #aeb5cb; font-size: 11px; line-height: 1.5; }
+
+      .emote-panel {
+        position: fixed;
+        z-index: 4;
+        bottom: 110px;
+        left: 50%;
+        display: flex;
+        gap: 8px;
+        padding: 11px;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 14px;
+        background: rgba(20,24,39,.9);
+        transform: translateX(-50%);
+        backdrop-filter: blur(14px);
+      }
+
+      .emote-panel[hidden] { display: none; }
+      .combat-message {
+        position: fixed;
+        z-index: 2;
+        top: 205px;
+        left: 50%;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        text-shadow: 0 2px 8px #111522;
+        transform: translateX(-50%);
+        pointer-events: none;
+      }
+
+      .combat-message:empty { display: none; }
+
+      .account-name {
+        max-width: 150px;
+        overflow: hidden;
+        color: #f5f7ff;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .quiet-button,
+      .auth-submit,
+      .auth-switch,
+      .quiet-button {
+        padding: 7px 10px;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 9px;
+        background: rgba(255,255,255,.08);
+        color: #d7daf0;
+        font-size: 11px;
+      }
+
+      .auth-gate {
+        position: fixed;
+        z-index: 5;
+        inset: 0;
+        display: grid;
+        padding: 20px;
+        place-items: center;
+        background: rgba(10, 12, 20, .64);
+        backdrop-filter: blur(8px);
+      }
+
+      .auth-gate[hidden] { display: none; }
+
+      .auth-card {
+        width: min(100%, 390px);
+        padding: 30px;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 22px;
+        background: #1b2031;
+        box-shadow: 0 24px 90px rgba(0,0,0,.45);
+      }
+
+      .auth-title { margin: 0; font-size: 24px; }
+      .auth-description { margin: 8px 0 22px; color: #aeb5cb; font-size: 13px; line-height: 1.5; }
+      .auth-field { display: grid; gap: 7px; margin-top: 15px; }
+      .auth-field label { color: #cdd2e3; font-size: 12px; }
+
+      .auth-field input {
+        width: 100%;
+        padding: 12px 13px;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 10px;
+        outline: none;
+        background: #141827;
+        color: #f5f7ff;
+        font: inherit;
+      }
+
+      .auth-field input:focus { border-color: #a58aff; }
+      .auth-field[hidden] { display: none; }
+
+      .auth-submit {
+        width: 100%;
+        margin-top: 20px;
+        padding: 12px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #aa9aff, #7760ed);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .auth-submit:disabled { cursor: wait; opacity: .65; }
+
+      .auth-message {
+        min-height: 20px;
+        margin: 12px 0 0;
+        color: #a9f2d9;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .auth-message[data-error="true"] { color: #ffb3ba; }
+      .auth-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; }
+
+      .auth-switch,
+      .auth-reset,
+      .auth-helper {
+        padding: 5px 0;
+        background: transparent;
+        color: #c7baff;
+        font-size: 12px;
+      }
+
+      .auth-helper {
+        margin: 10px 0 0;
+        color: #aeb5cb;
+        line-height: 1.5;
+      }
+
+      .auth-reset {
+        border: 0;
+        color: #aeb5cb;
+        cursor: pointer;
+      }
+
+      .auth-switch,
+      .auth-reset { background: transparent; font: inherit; }
+      .auth-switch:hover,
+      .auth-reset:hover { color: #fff; }
+
+      .duel-status {
+        position: fixed;
+        top: 91px;
+        left: 50%;
+        padding: 10px 16px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 999px;
+        background: rgba(20, 24, 39, .76);
+        color: #c4cbe0;
+        font-size: 12px;
+        text-align: center;
+        transform: translateX(-50%);
+        backdrop-filter: blur(14px);
+        pointer-events: none;
+      }
+
+      .duel-status[data-state="playing"] {
+        border-color: rgba(104, 224, 186, .45);
+        color: #a9f2d9;
+      }
+
+      .instructions {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 14px 18px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 18px;
+        background: rgba(20, 24, 39, .78);
+        box-shadow: 0 14px 50px rgba(0,0,0,.25);
+        transform: translateX(-50%);
+        backdrop-filter: blur(16px);
+      }
+
+      .hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      .keys { display: flex; gap: 5px; }
+
+      kbd {
+        display: grid;
+        min-width: 29px;
+        height: 29px;
+        padding: 0 7px;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.16);
+        border-bottom-width: 3px;
+        border-radius: 8px;
+        background: rgba(255,255,255,.08);
+        color: #f5f3ff;
+        font: 700 12px/1 inherit;
+      }
+
+      .divider { width: 1px; height: 28px; background: rgba(255,255,255,.12); }
+
+      .look-hint {
+        position: fixed;
+        right: 24px;
+        bottom: 104px;
+        padding: 9px 12px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 12px;
+        background: rgba(20, 24, 39, .76);
+        color: #aeb5cb;
+        font-size: 11px;
+        pointer-events: none;
+        backdrop-filter: blur(12px);
+      }
+
+      .position {
+        position: fixed;
+        right: 30px;
+        bottom: 36px;
+        color: rgba(214, 219, 238, .6);
+        font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+        text-align: right;
+        pointer-events: none;
+      }
+
+      #message {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        max-width: min(440px, calc(100vw - 40px));
+        padding: 16px 20px;
+        border: 1px solid rgba(255,255,255,.15);
+        border-radius: 14px;
+        background: #1b2031;
+        color: #f5f7ff;
+        line-height: 1.5;
+        text-align: center;
+        transform: translate(-50%, -50%);
+      }
+
+      #message[hidden] { display: none; }
+
+      @media (max-width: 700px) {
+        .topbar { padding: 18px; }
+        .duel-status { top: 79px; max-width: calc(100vw - 36px); }
+        .scoreboard { top: 125px; gap: 16px; padding: 10px 16px; }
+        .player-resources { top: 125px; right: 12px; gap: 8px; padding: 8px 10px; font-size: 10px; }
+        .health-stat { bottom: 100px; left: 12px; width: 190px; padding: 10px 12px; }
+        .combat-message { top: 184px; }
+        .look-hint { right: 16px; bottom: 90px; }
+        .instructions { bottom: 20px; gap: 12px; padding: 12px; }
+        kbd { min-width: 26px; height: 27px; }
+        .position { display: none; }
+        .divider { height: 24px; }
+      }
+
+      @media (max-width: 430px) {
+        .instructions { gap: 8px; }
+        .hint { flex-direction: column; }
+        .online { padding: 8px 10px; font-size: 11px; }
+        .account-name { display: none; }
+        .auth-card { padding: 24px; }
+        .look-hint { right: 50%; bottom: 95px; transform: translateX(50%); white-space: nowrap; }
+        .scoreboard { top: 118px; gap: 12px; padding: 9px 12px; }
+        .score-stat strong { font-size: 20px; }
+        .player-resources { top: 175px; right: 50%; transform: translateX(50%); white-space: nowrap; }
+        .health-stat { bottom: 130px; left: 10px; width: 164px; font-size: 10px; }
+        .emote-panel { bottom: 122px; max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .shop-button { transition: none; }
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="scene" aria-label="A 3D avatar standing in a small world"></canvas>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">✦</div>
+        <div>
+          <div class="brand-name">Little Explorer</div>
+          <div class="brand-subtitle">A tiny world to wander</div>
+        </div>
+      </div>
+      <div class="online">
+        <span class="online-dot"></span><span id="connection-status">Sign in to play</span>
+        <div id="account-controls" hidden>
+          <span class="account-name" id="account-name"></span>
+          <button class="shop-button" id="shop-button" type="button" aria-label="Open weapon shop" title="Open weapon shop">🛍️</button>
+          <button class="icon-button" id="admin-button" type="button" aria-label="Open admin panel" title="Open admin panel" hidden>🛠️</button>
+          <button class="icon-button" id="sign-out" type="button" aria-label="Sign out" title="Sign out">↪</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="duel-status" id="duel-status" data-state="waiting" aria-live="polite">
+      Sign in to join a 1v1 duel
+    </div>
+
+    <div class="game-hud" id="game-hud" hidden aria-live="polite">
+      <span class="health-stat">
+        <span>Your health <strong class="health" id="player-health">150 / 150</strong></span>
+        <span class="health-track"><span class="health-fill" id="health-fill"></span></span>
+      </span>
+      <div class="scoreboard" aria-label="Duel score">
+        <span class="score-stat you"><span class="score-name">YOU</span><strong id="player-points">0</strong></span>
+        <span class="score-divider" aria-hidden="true"></span>
+        <span class="score-stat opponent"><span class="score-name">OPPONENT</span><strong id="opponent-points">0</strong></span>
+      </div>
+      <div class="player-resources">
+        <span title="Keys">🔑 <strong class="currency" id="player-keys">0</strong></span>
+        <span id="weapon-label">Starter Blaster [1]</span>
+      </div>
+    </div>
+    <div class="aim-dot" id="aim-dot" hidden aria-hidden="true"></div>
+    <div class="combat-message" id="combat-message" aria-live="polite"></div>
+
+    <section class="game-panel" id="shop-panel" hidden aria-label="Weapon shop">
+      <div class="panel-heading">
+        <h2>Weapon shop</h2>
+        <button class="icon-button" id="shop-close" type="button" aria-label="Close shop" title="Close shop">×</button>
+      </div>
+      <p class="panel-description">Start with the free blaster. Unlock more weapons with keys earned from duels.</p>
+      <div class="shop-items" id="shop-items"></div>
+    </section>
+
+    <section class="game-panel" id="admin-panel" hidden aria-label="Admin panel">
+      <div class="panel-heading">
+        <h2>🛠️ Admin panel</h2>
+        <button class="icon-button" id="admin-close" type="button" aria-label="Close admin panel" title="Close admin panel">×</button>
+      </div>
+      <p class="panel-description">Welcome, CyberTimo1234. Manage your local game rewards and events.</p>
+      <div class="admin-tools">
+        <div class="admin-key-row">
+          <input class="admin-key-input" id="admin-key-amount" type="number" min="1" max="1000" step="1" value="10" aria-label="Keys to give">
+          <button class="admin-action" id="admin-give-keys" type="button">🔑 Give keys</button>
+        </div>
+        <button class="admin-action" id="admin-taco-rain" type="button">🌮 Start taco rain</button>
+        <button class="admin-action" id="admin-random-weapon" type="button">🎁 Give 1 random weapon</button>
+        <p class="admin-note">Prototype controls affect this browser only. Secure, shared admin actions need a trusted server.</p>
+      </div>
+    </section>
+
+    <section class="emote-panel" id="emote-panel" hidden aria-label="Emotes">
+      <button class="emote-action" data-emote="wave" type="button" aria-label="Wave" title="Wave">👋</button>
+      <button class="emote-action" data-emote="dance" type="button" aria-label="Dance" title="Dance">♪</button>
+      <button class="emote-action" data-emote="cheer" type="button" aria-label="Cheer" title="Cheer">✦</button>
+    </section>
+
+    <section class="instructions" aria-label="Movement controls">
+      <div class="hint">
+        <span class="keys" aria-label="Left"><kbd>Q</kbd></span>
+      </div>
+      <div class="hint">
+        <span class="keys" aria-label="Forward"><kbd>Z</kbd></span>
+      </div>
+      <div class="hint">
+        <span class="keys" aria-label="Back"><kbd>S</kbd></span>
+      </div>
+      <div class="hint">
+        <span class="keys" aria-label="Right"><kbd>D</kbd></span>
+      </div>
+      <div class="divider" aria-hidden="true"></div>
+      <div class="hint">
+        <span class="keys" aria-label="Slide"><kbd>Ctrl</kbd></span>
+      </div>
+      <div class="hint">
+        <span class="keys" aria-label="Jump"><kbd>Space</kbd></span>
+      </div>
+      <div class="hint">
+        <span class="keys" aria-label="Emotes"><kbd>T</kbd></span>
+      </div>
+    </section>
+    <div class="look-hint">Right mouse: zoom / look · Left click: shoot · T: emotes</div>
+
+    <div class="position" aria-live="polite">
+      <div>EXPLORER</div>
+      <div id="coordinates">X 0.0 &nbsp; Z 0.0</div>
+    </div>
+
+    <div id="message" role="status" hidden></div>
+
+    <div class="auth-gate" id="auth-gate">
+      <section class="auth-card" aria-labelledby="auth-title">
+        <h1 class="auth-title" id="auth-title">Welcome back</h1>
+        <p class="auth-description" id="auth-description">Sign in with your email to join a 1v1 duel.</p>
+        <form id="auth-form">
+          <div class="auth-field" id="display-name-field" hidden>
+            <label for="display-name">Player name (optional)</label>
+            <input id="display-name" name="display-name" type="text" maxlength="24" autocomplete="nickname">
+          </div>
+          <div class="auth-field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required autocomplete="email">
+          </div>
+          <div class="auth-field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required minlength="8" autocomplete="current-password">
+          </div>
+          <button class="auth-submit" id="auth-submit" type="submit">Sign in</button>
+        </form>
+        <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
+        <p class="auth-helper" id="auth-helper" hidden>If email confirmation is enabled, check your inbox to finish creating your account.</p>
+        <div class="auth-actions">
+          <button class="auth-switch" id="auth-switch" type="button">Create an account</button>
+          <button class="auth-reset" id="auth-reset" type="button">Forgot password?</button>
+        </div>
+      </section>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { createClient } from "@supabase/supabase-js";
+
+      const canvas = document.querySelector("#scene");
+      const message = document.querySelector("#message");
+      const coordinateLabel = document.querySelector("#coordinates");
+      const connectionStatus = document.querySelector("#connection-status");
+      const duelStatus = document.querySelector("#duel-status");
+      const authGate = document.querySelector("#auth-gate");
+      const authForm = document.querySelector("#auth-form");
+      const authTitle = document.querySelector("#auth-title");
+      const authDescription = document.querySelector("#auth-description");
+      const authMessage = document.querySelector("#auth-message");
+      const authSubmit = document.querySelector("#auth-submit");
+      const authSwitch = document.querySelector("#auth-switch");
+      const authReset = document.querySelector("#auth-reset");
+      const authHelper = document.querySelector("#auth-helper");
+      const displayNameField = document.querySelector("#display-name-field");
+      const displayNameInput = document.querySelector("#display-name");
+      const emailInput = document.querySelector("#email");
+      const passwordInput = document.querySelector("#password");
+      const accountControls = document.querySelector("#account-controls");
+      const accountName = document.querySelector("#account-name");
+      const shopButton = document.querySelector("#shop-button");
+      const shopPanel = document.querySelector("#shop-panel");
+      const shopItems = document.querySelector("#shop-items");
+      const shopClose = document.querySelector("#shop-close");
+      const adminButton = document.querySelector("#admin-button");
+      const adminPanel = document.querySelector("#admin-panel");
+      const adminKeyAmount = document.querySelector("#admin-key-amount");
+      const emotePanel = document.querySelector("#emote-panel");
+      const gameHud = document.querySelector("#game-hud");
+      const aimDot = document.querySelector("#aim-dot");
+      const playerHealthLabel = document.querySelector("#player-health");
+      const healthFill = document.querySelector("#health-fill");
+      const scoreboard = document.querySelector(".scoreboard");
+      const playerPointsLabel = document.querySelector("#player-points");
+      const opponentPointsLabel = document.querySelector("#opponent-points");
+      const playerKeysLabel = document.querySelector("#player-keys");
+      const weaponLabel = document.querySelector("#weapon-label");
+      const combatMessage = document.querySelector("#combat-message");
+      const keysDown = new Set();
+      const clock = new THREE.Clock();
+      let authMode = "signin";
+
+      let renderer;
+
+      function showError(text) {
+        message.textContent = text;
+        message.hidden = false;
+      }
+
+      try {
+        renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      } catch (error) {
+        showError("Your browser couldn't start WebGL, which is needed to display the 3D world.");
+        throw error;
+      }
+
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#111522");
+      scene.fog = new THREE.Fog("#111522", 18, 55);
+
+      const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 100);
+      const cameraTarget = new THREE.Vector3();
+      let cameraYaw = 0;
+      let cameraPitch = 0.505;
+      const cameraDistance = Math.hypot(4.7, 8.5);
+      let lookPointerId = null;
+      let currentCameraDistance = cameraDistance;
+
+      scene.add(new THREE.HemisphereLight("#c5d4ff", "#423957", 2.1));
+
+      const keyLight = new THREE.DirectionalLight("#fff0d7", 3.3);
+      keyLight.position.set(-4, 9, 5);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.set(1024, 1024);
+      keyLight.shadow.camera.left = -12;
+      keyLight.shadow.camera.right = 12;
+      keyLight.shadow.camera.top = 12;
+      keyLight.shadow.camera.bottom = -12;
+      keyLight.shadow.bias = -0.0003;
+      scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight("#8c8bff", 1.2);
+      fillLight.position.set(5, 4, -6);
+      scene.add(fillLight);
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshStandardMaterial({ color: "#22273a", roughness: 0.9 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -0.03;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      const grid = new THREE.GridHelper(100, 50, "#65638d", "#3b4058");
+      grid.position.y = 0;
+      grid.material.transparent = true;
+      grid.material.opacity = 0.32;
+      scene.add(grid);
+
+      const groundRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.9, 1.02, 64),
+        new THREE.MeshBasicMaterial({ color: "#a99aff", transparent: true, opacity: 0.65, side: THREE.DoubleSide })
+      );
+      groundRing.rotation.x = -Math.PI / 2;
+      groundRing.position.y = 0.015;
+      scene.add(groundRing);
+
+      const duelPads = [
+        { id: "violet", label: "PAD A", x: -2.2, z: -3.2, color: "#a58aff", material: null, badge: null },
+        { id: "mint", label: "PAD B", x: 2.2, z: -3.2, color: "#68e0ba", material: null, badge: null }
+      ];
+
+      function createProfileBadge(pad, name, isLocal) {
+        const badgeCanvas = document.createElement("canvas");
+        badgeCanvas.width = 512;
+        badgeCanvas.height = 160;
+        const context = badgeCanvas.getContext("2d");
+        const color = pad.color;
+
+        context.fillStyle = "rgba(20, 24, 39, 0.94)";
+        context.beginPath();
+        context.roundRect(4, 4, 504, 152, 48);
+        context.fill();
+        context.strokeStyle = color;
+        context.lineWidth = 8;
+        context.stroke();
+
+        context.fillStyle = color;
+        context.beginPath();
+        context.arc(82, 80, 52, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = "#ffd2ad";
+        context.beginPath();
+        context.arc(82, 87, 32, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = "#29263a";
+        context.beginPath();
+        context.ellipse(82, 66, 35, 21, 0, Math.PI, Math.PI * 2);
+        context.fill();
+        context.fillStyle = "#29263a";
+        context.beginPath();
+        context.arc(72, 87, 3, 0, Math.PI * 2);
+        context.arc(92, 87, 3, 0, Math.PI * 2);
+        context.fill();
+
+        context.textAlign = "left";
+        context.fillStyle = "#f5f7ff";
+        context.font = "700 34px system-ui, sans-serif";
+        context.fillText(name.slice(0, 18), 155, 70);
+        context.fillStyle = color;
+        context.font = "700 22px system-ui, sans-serif";
+        context.fillText(isLocal ? "YOU" : pad.label, 158, 112);
+
+        const texture = new THREE.CanvasTexture(badgeCanvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+        sprite.scale.set(2.3, 0.72, 1);
+        sprite.position.set(pad.x, 2.8, pad.z);
+        sprite.renderOrder = 2;
+        scene.add(sprite);
+        return sprite;
+      }
+
+      for (const pad of duelPads) {
+        const platform = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.05, 1.12, 0.2, 48),
+          new THREE.MeshStandardMaterial({ color: pad.color, roughness: 0.38, metalness: 0.1 })
+        );
+        platform.position.set(pad.x, 0.07, pad.z);
+        platform.receiveShadow = true;
+        platform.castShadow = true;
+        scene.add(platform);
+        pad.material = platform.material;
+
+        const padRing = new THREE.Mesh(
+          new THREE.TorusGeometry(0.84, 0.035, 8, 48),
+          new THREE.MeshBasicMaterial({ color: pad.color, transparent: true, opacity: 0.85 })
+        );
+        padRing.rotation.x = Math.PI / 2;
+        padRing.position.set(pad.x, 0.18, pad.z);
+        scene.add(padRing);
+
+        const labelCanvas = document.createElement("canvas");
+        labelCanvas.width = 256;
+        labelCanvas.height = 80;
+        const labelContext = labelCanvas.getContext("2d");
+        labelContext.fillStyle = pad.color;
+        labelContext.font = "700 42px system-ui, sans-serif";
+        labelContext.textAlign = "center";
+        labelContext.textBaseline = "middle";
+        labelContext.fillText(pad.label, 128, 40);
+        const labelTexture = new THREE.CanvasTexture(labelCanvas);
+        labelTexture.colorSpace = THREE.SRGBColorSpace;
+        const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture, transparent: true, depthTest: false }));
+        labelSprite.scale.set(1.2, 0.38, 1);
+        labelSprite.position.set(pad.x, 0.42, pad.z);
+        labelSprite.renderOrder = 1;
+        scene.add(labelSprite);
+      }
+
+      const avatar = new THREE.Group();
+      scene.add(avatar);
+
+      const body = new THREE.Group();
+      avatar.add(body);
+
+      function makeMaterial(color, roughness = 0.68) {
+        return new THREE.MeshStandardMaterial({ color, roughness });
+      }
+
+      function addPart(parent, geometry, material, position, castShadow = true) {
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(...position);
+        mesh.castShadow = castShadow;
+        mesh.receiveShadow = true;
+        parent.add(mesh);
+        return mesh;
+      }
+
+      const jacket = makeMaterial("#8271ee");
+      const jacketLight = makeMaterial("#aa9aff");
+      const skin = makeMaterial("#ffd2ad");
+      const trousers = makeMaterial("#333b59");
+      const shoes = makeMaterial("#f4bd78");
+      const dark = makeMaterial("#29263a");
+      const eyeMaterial = new THREE.MeshStandardMaterial({ color: "#22243a", roughness: 0.25 });
+
+      const torso = addPart(body, new THREE.CapsuleGeometry(0.38, 0.55, 5, 12), jacket, [0, 1.25, 0]);
+      torso.scale.set(1, 0.92, 0.72);
+
+      const collar = addPart(body, new THREE.TorusGeometry(0.2, 0.055, 8, 20), jacketLight, [0, 1.58, -0.015]);
+      collar.rotation.x = Math.PI / 2;
+
+      addPart(body, new THREE.SphereGeometry(0.31, 24, 20), skin, [0, 2.05, 0]);
+      addPart(body, new THREE.SphereGeometry(0.34, 24, 16), dark, [0, 2.22, 0.035]).scale.set(1, 0.48, 0.93);
+      addPart(body, new THREE.SphereGeometry(0.07, 16, 12), skin, [-0.31, 2.02, 0]);
+      addPart(body, new THREE.SphereGeometry(0.07, 16, 12), skin, [0.31, 2.02, 0]);
+      addPart(body, new THREE.SphereGeometry(0.035, 12, 10), eyeMaterial, [-0.105, 2.08, -0.278]);
+      addPart(body, new THREE.SphereGeometry(0.035, 12, 10), eyeMaterial, [0.105, 2.08, -0.278]);
+      addPart(body, new THREE.SphereGeometry(0.025, 12, 10), jacketLight, [0, 1.29, -0.276], false);
+
+      const leftArm = new THREE.Group();
+      leftArm.position.set(-0.39, 1.53, 0);
+      body.add(leftArm);
+      addPart(leftArm, new THREE.CapsuleGeometry(0.12, 0.42, 4, 10), jacket, [0, -0.29, 0]);
+      addPart(leftArm, new THREE.SphereGeometry(0.13, 16, 12), skin, [0, -0.58, -0.01]);
+
+      const rightArm = new THREE.Group();
+      rightArm.position.set(0.39, 1.53, 0);
+      body.add(rightArm);
+      addPart(rightArm, new THREE.CapsuleGeometry(0.12, 0.42, 4, 10), jacket, [0, -0.29, 0]);
+      addPart(rightArm, new THREE.SphereGeometry(0.13, 16, 12), skin, [0, -0.58, -0.01]);
+
+      const legs = [];
+      for (const side of [-1, 1]) {
+        const leg = new THREE.Group();
+        leg.position.set(side * 0.18, 0.78, 0);
+        body.add(leg);
+        addPart(leg, new THREE.CapsuleGeometry(0.145, 0.43, 4, 10), trousers, [0, -0.28, 0]);
+        addPart(leg, new THREE.BoxGeometry(0.25, 0.15, 0.37), shoes, [0, -0.59, -0.075]);
+        legs.push(leg);
+      }
+
+      const gunModel = new THREE.Group();
+      gunModel.position.set(0.15, -0.51, -0.15);
+      gunModel.rotation.x = -0.1;
+      rightArm.add(gunModel);
+      const gunMaterial = new THREE.MeshStandardMaterial({ color: "#a58aff", roughness: 0.4, metalness: 0.45 });
+      const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 0.36), gunMaterial);
+      gunBody.name = "weapon-body";
+      gunBody.position.set(0, 0, -0.08);
+      gunModel.add(gunBody);
+      const gunBarrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.045, 0.055, 0.3, 12),
+        new THREE.MeshStandardMaterial({ color: "#dce1f5", roughness: 0.3, metalness: 0.65 })
+      );
+      gunBarrel.rotation.x = Math.PI / 2;
+      gunBarrel.position.set(0, 0.01, -0.38);
+      gunModel.add(gunBarrel);
+      const gunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.12), gunMaterial);
+      gunGrip.name = "weapon-grip";
+      gunGrip.position.set(0, -0.14, 0.02);
+      gunGrip.rotation.x = -0.2;
+      gunModel.add(gunGrip);
+
+      const remoteAvatar = avatar.clone(true);
+      remoteAvatar.visible = false;
+      remoteAvatar.traverse((object) => {
+        if (object.isMesh && object.material?.color) {
+          const sourceMaterial = object.material;
+          object.material = object.material.clone();
+          if (sourceMaterial === gunMaterial) object.material.color.set("#68e0ba");
+        }
+      });
+      scene.add(remoteAvatar);
+
+      const landmarkMaterial = makeMaterial("#626888");
+      const landmarkTop = makeMaterial("#a899ff");
+
+      function addLandmark(x, z, height) {
+        const base = new THREE.Group();
+        base.position.set(x, 0, z);
+        scene.add(base);
+        addPart(base, new THREE.CylinderGeometry(0.18, 0.24, height, 8), landmarkMaterial, [0, height / 2, 0]);
+        addPart(base, new THREE.SphereGeometry(0.22, 16, 12), landmarkTop, [0, height + 0.13, 0]);
+        const glow = new THREE.PointLight("#8f7aff", 0.7, 3);
+        glow.position.set(0, height + 0.2, 0);
+        base.add(glow);
+      }
+
+      addLandmark(-3, -5, 1.4);
+      addLandmark(3.7, -7, 2.1);
+      addLandmark(-5, 2, 1.8);
+      addLandmark(5.4, 1, 1.2);
+      addLandmark(1.3, -11, 1.6);
+
+      const supabase = createClient(
+        "https://xbbcbpswwuppwkxpqfns.supabase.co",
+        "sb_publishable_vV30lvs2PqcOgTPByF5YnA_E1Qlap9m"
+      );
+      let currentUser = null;
+      let playerId = null;
+      let playerName = "";
+      let presenceChannel = null;
+      let myPad = null;
+      let blockedPadId = null;
+      let occupiedPads = new Map();
+      let isConnected = false;
+      let presenceUpdateTimer = null;
+      let matchSignature = "";
+      let authGeneration = 0;
+      let activeOpponent = null;
+      let activeDuelId = null;
+      let duelActive = false;
+      const maxHealth = 150;
+      let playerHealth = maxHealth;
+      let playerPoints = 0;
+      let opponentPoints = 0;
+      let playerKeys = 0;
+      let unlockedWeapons = new Set(["starter"]);
+      let equippedWeaponId = "starter";
+      let lastShotAt = 0;
+      let lastPoseAt = 0;
+      let remotePoseAt = 0;
+      let isAlive = true;
+      let remoteAlive = true;
+      let emoteUntil = 0;
+      let emoteType = "";
+      let remoteEmoteUntil = 0;
+      let remoteEmoteType = "";
+      const projectiles = [];
+      const tacoDrops = [];
+      let tacoRainUntil = 0;
+      const processedShots = new Set();
+      let messageTimer = 0;
+
+      const weapons = [
+        { id: "starter", name: "Starter Blaster", key: "1", price: 0, damage: 25, cooldown: 550, speed: 19, color: "#a58aff" },
+        { id: "pulse", name: "Pulse Rifle", key: "2", price: 3, damage: 14, cooldown: 190, speed: 26, color: "#68e0ba" },
+        { id: "heavy", name: "Heavy Blaster", key: "3", price: 6, damage: 50, cooldown: 1000, speed: 14, color: "#ff9f78" },
+        { id: "taco-wrap", name: "Taco Wrap", key: "4", price: 9, damage: 32, cooldown: 650, speed: 18, color: "#f4bd4f" }
+      ];
+      const tacoShellGeometry = new THREE.CylinderGeometry(0.13, 0.17, 0.34, 8);
+      const tacoShellMaterial = new THREE.MeshStandardMaterial({ color: "#efbd58", roughness: 0.78 });
+      const tacoFillingMaterial = new THREE.MeshStandardMaterial({ color: "#b85645", roughness: 0.9 });
+      const tacoGreensMaterial = new THREE.MeshStandardMaterial({ color: "#70b76c", roughness: 0.9 });
+      const tacoFillingGeometry = new THREE.SphereGeometry(0.055, 6, 5);
+
+      function isAdminAccount() {
+        return Boolean(currentUser && playerName.toLowerCase() === "cybertimo1234");
+      }
+
+      function updateAdminAccess() {
+        const isAdmin = isAdminAccount();
+        adminButton.hidden = !isAdmin;
+        if (!isAdmin) {
+          adminPanel.hidden = true;
+          if (tacoRainUntil) stopTacoRain();
+        }
+      }
+
+      function createTacoDrop() {
+        const taco = new THREE.Group();
+        const shell = new THREE.Mesh(tacoShellGeometry, tacoShellMaterial);
+        shell.rotation.z = Math.PI / 2;
+        taco.add(shell);
+        for (const [x, material] of [[-0.08, tacoFillingMaterial], [0, tacoGreensMaterial], [0.08, tacoFillingMaterial]]) {
+          const filling = new THREE.Mesh(tacoFillingGeometry, material);
+          filling.position.set(x, 0.09, 0);
+          taco.add(filling);
+        }
+        taco.scale.setScalar(0.9 + Math.random() * 0.5);
+        taco.position.set(
+          avatar.position.x + (Math.random() - 0.5) * 16,
+          6 + Math.random() * 12,
+          avatar.position.z + (Math.random() - 0.5) * 16
+        );
+        scene.add(taco);
+        tacoDrops.push({ mesh: taco, fallSpeed: 3 + Math.random() * 4 });
+      }
+
+      function stopTacoRain() {
+        tacoRainUntil = 0;
+        for (const drop of tacoDrops) scene.remove(drop.mesh);
+        tacoDrops.length = 0;
+      }
+
+      function startTacoRain() {
+        if (!isAdminAccount()) return;
+        tacoRainUntil = performance.now() + 10000;
+        if (tacoDrops.length === 0) {
+          for (let index = 0; index < 28; index += 1) createTacoDrop();
+        }
+        showCombatMessage("🌮 Taco rain!");
+      }
+
+      function updateTacoRain(delta) {
+        if (!tacoRainUntil) return;
+        if (performance.now() >= tacoRainUntil) {
+          stopTacoRain();
+          return;
+        }
+        for (const drop of tacoDrops) {
+          drop.mesh.position.y -= drop.fallSpeed * delta;
+          drop.mesh.rotation.x += delta * 1.5;
+          drop.mesh.rotation.z += delta * 2;
+          if (drop.mesh.position.y < 0.25) {
+            drop.mesh.position.set(
+              avatar.position.x + (Math.random() - 0.5) * 16,
+              8 + Math.random() * 10,
+              avatar.position.z + (Math.random() - 0.5) * 16
+            );
+          }
+        }
+      }
+
+      function showCombatMessage(text) {
+        combatMessage.textContent = text;
+        window.clearTimeout(messageTimer);
+        messageTimer = window.setTimeout(() => {
+          combatMessage.textContent = "";
+        }, 2200);
+      }
+
+      function syncGameHud() {
+        gameHud.hidden = !currentUser;
+        aimDot.hidden = !duelActive;
+        scoreboard.hidden = !duelActive;
+        playerHealthLabel.textContent = `${playerHealth} / ${maxHealth}`;
+        healthFill.style.width = `${Math.max(0, Math.min(100, playerHealth / maxHealth * 100))}%`;
+        playerPointsLabel.textContent = String(playerPoints);
+        opponentPointsLabel.textContent = String(opponentPoints);
+        playerKeysLabel.textContent = String(playerKeys);
+        const weapon = weapons.find((item) => item.id === equippedWeaponId) || weapons[0];
+        weaponLabel.textContent = `${weapon.name} [${weapon.key}]`;
+      }
+
+      function saveEconomy() {
+        if (!playerId) return;
+        try {
+          localStorage.setItem(`little-explorer-economy:${playerId}`, JSON.stringify({
+            points: playerPoints,
+            keys: playerKeys,
+            unlockedWeapons: [...unlockedWeapons],
+            equippedWeaponId
+          }));
+        } catch (error) {
+          console.error("Could not save duel rewards:", error);
+          showError("Your duel rewards could not be saved in this browser.");
+        }
+        syncGameHud();
+      }
+
+      function loadEconomy(userId) {
+        playerPoints = 0;
+        playerKeys = 0;
+        unlockedWeapons = new Set(["starter"]);
+        equippedWeaponId = "starter";
+        try {
+          const saved = localStorage.getItem(`little-explorer-economy:${userId}`);
+          if (saved) {
+            const data = JSON.parse(saved);
+            if (Number.isSafeInteger(data.points) && data.points >= 0) playerPoints = data.points;
+            if (Number.isSafeInteger(data.keys) && data.keys >= 0) playerKeys = data.keys;
+            if (Array.isArray(data.unlockedWeapons)) {
+              for (const item of data.unlockedWeapons) {
+                if (weapons.some((weapon) => weapon.id === item)) unlockedWeapons.add(item);
+              }
+            }
+            if (unlockedWeapons.has(data.equippedWeaponId)) equippedWeaponId = data.equippedWeaponId;
+          }
+        } catch (error) {
+          console.error("Could not load saved duel rewards:", error);
+          showError("Saved duel rewards could not be loaded from this browser.");
+        }
+        updateWeaponModel();
+        syncGameHud();
+      }
+
+      function updateWeaponModel() {
+        const weapon = weapons.find((item) => item.id === equippedWeaponId) || weapons[0];
+        gunMaterial.color.set(weapon.color);
+        syncGameHud();
+      }
+
+      function sendDuelEvent(event, payload) {
+        if (!presenceChannel || !activeDuelId || !playerId) return;
+        presenceChannel.send({
+          type: "broadcast",
+          event,
+          payload: { ...payload, senderId: playerId, duelId: activeDuelId }
+        }).then(({ error }) => {
+          if (error) {
+            console.error(`Could not send duel ${event} event:`, error);
+            showCombatMessage("Duel connection interrupted");
+          }
+        }).catch((error) => {
+          console.error(`Could not send duel ${event} event:`, error);
+          showCombatMessage("Duel connection interrupted");
+        });
+      }
+
+      function spawnProjectile(position, direction, color, speed) {
+        const material = new THREE.MeshStandardMaterial({
+          color,
+          emissive: color,
+          emissiveIntensity: 1.5,
+          roughness: 0.25
+        });
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), material);
+        mesh.position.copy(position);
+        scene.add(mesh);
+        projectiles.push({ mesh, direction: direction.clone(), speed, distance: 0, maxDistance: 36 });
+      }
+
+      function updateShop() {
+        shopItems.replaceChildren();
+        for (const weapon of weapons) {
+          const unlocked = unlockedWeapons.has(weapon.id);
+          const equipped = equippedWeaponId === weapon.id;
+          const item = document.createElement("div");
+          item.className = "shop-item";
+          const details = document.createElement("div");
+          const name = document.createElement("div");
+          name.className = "shop-item-name";
+          name.textContent = weapon.name;
+          const description = document.createElement("div");
+          description.className = "shop-item-detail";
+          description.textContent = `${weapon.damage} damage · [${weapon.key}] to equip`;
+          details.append(name, description);
+          const action = document.createElement("button");
+          action.className = "item-action";
+          action.type = "button";
+          action.dataset.weapon = weapon.id;
+          action.textContent = equipped ? "✓" : unlocked ? "➜" : "🔒";
+          action.setAttribute("aria-label", equipped
+            ? `${weapon.name} equipped`
+            : unlocked
+              ? `Equip ${weapon.name}`
+              : `Unlock ${weapon.name} for ${weapon.price} keys`);
+          action.title = equipped
+            ? `${weapon.name} equipped`
+            : unlocked
+              ? `Equip ${weapon.name}`
+              : `Unlock ${weapon.name} for ${weapon.price} keys`;
+          action.disabled = equipped;
+          item.append(details, action);
+          shopItems.append(item);
+        }
+      }
+
+      function equipWeapon(weaponId) {
+        if (!unlockedWeapons.has(weaponId)) return;
+        equippedWeaponId = weaponId;
+        updateWeaponModel();
+        saveEconomy();
+        updateShop();
+      }
+
+      function triggerEmote(type, broadcast = true) {
+        emoteType = type;
+        emoteUntil = clock.elapsedTime + 2;
+        emotePanel.hidden = true;
+        showCombatMessage(type === "wave" ? "👋 Wave!" : type === "dance" ? "♪ Dance!" : "✦ Cheer!");
+        if (broadcast && duelActive) sendDuelEvent("emote", { emote: type });
+      }
+
+      function handleDuelEvent({ payload }) {
+        if (!duelActive || !activeOpponent || payload?.senderId !== activeOpponent.playerId || payload.duelId !== activeDuelId) return;
+
+        if (payload.event === "pose") {
+          const position = payload.position;
+          if (!position || ![position.x, position.y, position.z, payload.rotationY].every(Number.isFinite)) return;
+          remoteAvatar.position.set(position.x, position.y, position.z);
+          remoteAvatar.rotation.y = payload.rotationY;
+          remotePoseAt = performance.now();
+          remoteAlive = payload.alive !== false;
+          if (Number.isSafeInteger(payload.points) && payload.points >= 0) {
+            opponentPoints = Math.max(opponentPoints, payload.points);
+            syncGameHud();
+          }
+          if (payload.weaponId && weapons.some((weapon) => weapon.id === payload.weaponId)) {
+            const weapon = weapons.find((item) => item.id === payload.weaponId);
+            remoteAvatar.traverse((object) => {
+              if (object.name === "weapon-body" || object.name === "weapon-grip") object.material.color.set(weapon.color);
+            });
+          }
+          if (payload.alive === false) remoteAvatar.visible = false;
+          return;
+        }
+
+        if (payload.event === "shot") {
+          if (!payload.origin || !payload.direction || ![payload.origin.x, payload.origin.y, payload.origin.z, payload.direction.x, payload.direction.y, payload.direction.z].every(Number.isFinite)) return;
+          const weapon = weapons.find((item) => item.id === payload.weaponId);
+          if (!weapon) return;
+          spawnProjectile(new THREE.Vector3(payload.origin.x, payload.origin.y, payload.origin.z),
+            new THREE.Vector3(payload.direction.x, payload.direction.y, payload.direction.z), weapon.color, weapon.speed);
+          if (isAlive && payload.targetId === playerId && payload.hit === true && typeof payload.shotId === "string" && !processedShots.has(payload.shotId)) {
+            processedShots.add(payload.shotId);
+            playerHealth = Math.max(0, playerHealth - weapon.damage);
+            syncGameHud();
+            showCombatMessage(playerHealth > 0 ? `Hit! ${playerHealth} HP left` : "You were knocked out!");
+            const killed = playerHealth === 0 && isAlive;
+            if (killed) {
+              isAlive = false;
+              avatar.visible = false;
+              keysDown.clear();
+              sendDuelEvent("pose", { position: avatar.position.toJSON(), rotationY: avatar.rotation.y, alive: false });
+            }
+            sendDuelEvent("damage", { targetId: activeOpponent.playerId, killed, shotId: payload.shotId });
+            if (killed) {
+              window.setTimeout(() => {
+                if (!duelActive || isAlive) return;
+                const spawnPad = duelPads.find((pad) => pad.id === myPad);
+                if (spawnPad) avatar.position.set(spawnPad.x, 0, spawnPad.z + 0.8);
+                playerHealth = maxHealth;
+                isAlive = true;
+                avatar.visible = true;
+                syncGameHud();
+                sendDuelEvent("pose", { position: avatar.position.toJSON(), rotationY: avatar.rotation.y, alive: true });
+                sendDuelEvent("respawn", { targetId: activeOpponent.playerId });
+              }, 2500);
+            }
+          }
+          return;
+        }
+
+        if (payload.event === "damage" && payload.targetId === playerId) {
+          if (payload.killed) {
+            playerPoints += 1;
+            if (playerPoints % 5 === 0) {
+              playerKeys += 3;
+              showCombatMessage(`Point! ${playerPoints} points — +3 keys`);
+            } else {
+              showCombatMessage(`Point! ${playerPoints} points`);
+            }
+            saveEconomy();
+            sendDuelEvent("score", { targetId: activeOpponent.playerId, points: playerPoints });
+          }
+          return;
+        }
+
+        if (payload.event === "score" && payload.targetId === playerId && Number.isSafeInteger(payload.points) && payload.points >= 0) {
+          opponentPoints = Math.max(opponentPoints, payload.points);
+          syncGameHud();
+          return;
+        }
+
+        if (payload.event === "respawn") {
+          if (payload.targetId === playerId) showCombatMessage(`${activeOpponent.name} respawned`);
+          return;
+        }
+
+        if (payload.event === "emote" && ["wave", "dance", "cheer"].includes(payload.emote)) {
+          remoteEmoteType = payload.emote;
+          remoteEmoteUntil = clock.elapsedTime + 2;
+        }
+      }
+
+      function setAuthMessage(text, isError = false) {
+        authMessage.textContent = text;
+        authMessage.dataset.error = String(isError);
+      }
+
+      function setAuthMode(mode) {
+        authMode = mode;
+        const signingUp = mode === "signup";
+        authTitle.textContent = signingUp ? "Create your explorer" : "Welcome back";
+        authDescription.textContent = signingUp
+          ? "Create an account to explore and join 1v1 duels."
+          : "Sign in with your email to join a 1v1 duel.";
+        authSubmit.textContent = signingUp ? "Create account" : "Sign in";
+        authSwitch.textContent = signingUp ? "Already have an account? Sign in" : "Create an account";
+        authReset.hidden = signingUp;
+        authHelper.hidden = !signingUp;
+        displayNameField.hidden = !signingUp;
+        passwordInput.autocomplete = signingUp ? "new-password" : "current-password";
+        setAuthMessage("");
+      }
+
+      function getPlayerName(user) {
+        const profileName = user.user_metadata?.display_name;
+        const emailName = user.email?.split("@")[0];
+        return (profileName || emailName || "Explorer").slice(0, 24);
+      }
+
+      function getOccupiedPlayers() {
+        const players = new Map();
+        const state = presenceChannel?.presenceState() ?? {};
+
+        for (const entries of Object.values(state)) {
+          for (const entry of entries) {
+            if (entry.playerId && entry.playerId !== playerId && entry.pad) {
+              players.set(entry.playerId, entry);
+            }
+          }
+        }
+
+        return players;
+      }
+
+      function updateDuelStatus() {
+        occupiedPads = new Map();
+        if (myPad) {
+          occupiedPads.set(myPad, { name: playerName, playerId, isLocal: true });
+        }
+
+        for (const player of getOccupiedPlayers().values()) {
+          if (player.pad && !occupiedPads.has(player.pad)) {
+            occupiedPads.set(player.pad, { name: player.name || "Explorer", playerId: player.playerId, isLocal: false });
+          }
+        }
+
+        const nextOpponent = myPad
+          ? [...getOccupiedPlayers().values()].find((player) => player.pad && player.pad !== myPad)
+          : null;
+        const nextDuelId = occupiedPads.size === 2 && nextOpponent && playerId
+          ? [playerId, nextOpponent.playerId].sort().join(":")
+          : null;
+        if (nextDuelId !== activeDuelId) {
+          activeDuelId = nextDuelId;
+          playerHealth = maxHealth;
+          opponentPoints = 0;
+          isAlive = true;
+          remoteAlive = true;
+          avatar.visible = true;
+          remoteAvatar.visible = false;
+          processedShots.clear();
+        }
+        activeOpponent = nextDuelId ? nextOpponent : null;
+        duelActive = Boolean(activeDuelId && activeOpponent);
+        syncGameHud();
+
+        for (const pad of duelPads) {
+          const occupant = occupiedPads.get(pad.id);
+          if (occupant && !pad.badge) {
+            pad.badge = createProfileBadge(pad, occupant.name, occupant.isLocal);
+          } else if (occupant && pad.badgeName !== occupant.name) {
+            scene.remove(pad.badge);
+            pad.badge.material.map.dispose();
+            pad.badge.material.dispose();
+            pad.badge = createProfileBadge(pad, occupant.name, occupant.isLocal);
+          } else if (!occupant && pad.badge) {
+            scene.remove(pad.badge);
+            pad.badge.material.map.dispose();
+            pad.badge.material.dispose();
+            pad.badge = null;
+          }
+          pad.badgeName = occupant ? occupant.name : null;
+          pad.material.emissive.set(occupant ? pad.color : "#000000");
+          pad.material.emissiveIntensity = occupant ? 0.28 : 0;
+        }
+
+        const opponentPad = activeOpponent && duelPads.find((pad) => pad.id === activeOpponent.pad);
+        if (duelActive) {
+          const signature = activeDuelId;
+          duelStatus.textContent = `1v1 started — ${activeOpponent.name} is on ${opponentPad?.label === "PAD A" ? "Pad A" : "Pad B"}`;
+          duelStatus.dataset.state = "playing";
+          if (matchSignature !== signature) {
+            matchSignature = signature;
+          }
+        } else if (occupiedPads.size === 2) {
+          matchSignature = "";
+          duelStatus.textContent = "1v1 in progress — both duel pads are occupied";
+          duelStatus.dataset.state = "playing";
+        } else if (myPad) {
+          matchSignature = "";
+          duelStatus.textContent = "You’re on a duel pad — waiting for another player";
+          duelStatus.dataset.state = "waiting";
+        } else if (occupiedPads.size > 0) {
+          matchSignature = "";
+          duelStatus.textContent = "A player is waiting on a pad — join the other one";
+          duelStatus.dataset.state = "waiting";
+        } else {
+          matchSignature = "";
+          duelStatus.textContent = "Find a duel pad to join the 1v1";
+          duelStatus.dataset.state = "waiting";
+        }
+      }
+
+      function trackPresence() {
+        if (!isConnected || !presenceChannel || !playerId) return;
+        window.clearTimeout(presenceUpdateTimer);
+        presenceUpdateTimer = window.setTimeout(() => {
+          presenceChannel.track({ playerId, name: playerName, pad: myPad }).then(({ error }) => {
+            if (error) {
+              console.error("Could not update duel pad presence:", error);
+              connectionStatus.textContent = "Presence update failed";
+            }
+          }).catch((error) => {
+            console.error("Could not update duel pad presence:", error);
+            connectionStatus.textContent = "Presence update failed";
+          });
+        }, 250);
+      }
+
+      async function applyAuthSession(session) {
+        const nextUser = session?.user ?? null;
+        const generation = ++authGeneration;
+
+        if (currentUser?.id === nextUser?.id) {
+          currentUser = nextUser;
+          if (nextUser) {
+            playerName = getPlayerName(nextUser);
+            accountName.textContent = playerName;
+            authGate.hidden = true;
+          }
+          updateAdminAccess();
+          return;
+        }
+
+        const previousChannel = presenceChannel;
+        presenceChannel = null;
+        isConnected = false;
+        myPad = null;
+        blockedPadId = null;
+        keysDown.clear();
+        currentUser = nextUser;
+
+        if (previousChannel) {
+          await supabase.removeChannel(previousChannel);
+          if (generation !== authGeneration) return;
+        }
+
+        if (!currentUser) {
+          playerId = null;
+          playerName = "";
+          updateAdminAccess();
+          accountControls.hidden = true;
+          authGate.hidden = false;
+          connectionStatus.textContent = "Sign in to play";
+          duelStatus.textContent = "Sign in to join a 1v1 duel";
+          duelStatus.dataset.state = "waiting";
+          updateDuelStatus();
+          return;
+        }
+
+        playerId = currentUser.id;
+        playerName = getPlayerName(currentUser);
+        loadEconomy(playerId);
+        accountName.textContent = playerName;
+        updateAdminAccess();
+        accountControls.hidden = false;
+        authGate.hidden = true;
+        connectionStatus.textContent = "Connecting…";
+        duelStatus.textContent = "Find a duel pad to join the 1v1";
+        duelStatus.dataset.state = "waiting";
+        message.hidden = true;
+
+        const channel = supabase.channel("little-explorer-1v1", {
+          config: { presence: { key: crypto.randomUUID() }, broadcast: { self: false }, private: false }
+        });
+        presenceChannel = channel;
+        channel.on("presence", { event: "sync" }, updateDuelStatus);
+        for (const event of ["pose", "shot", "damage", "score", "respawn", "emote"]) {
+          channel.on("broadcast", { event }, handleDuelEvent);
+        }
+        channel.subscribe((status, error) => {
+          if (generation !== authGeneration) return;
+          if (status === "SUBSCRIBED") {
+            isConnected = true;
+            connectionStatus.textContent = "Online";
+            trackPresence();
+            updateDuelStatus();
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            isConnected = false;
+            connectionStatus.textContent = "Multiplayer offline";
+            duelStatus.textContent = "Could not connect to the 1v1 lobby";
+            duelStatus.dataset.state = "waiting";
+            console.error("Supabase Realtime connection failed:", error || status);
+            showError("Could not connect to the multiplayer lobby. Check that Supabase Realtime is enabled for this project.");
+          }
+        });
+      }
+
+      authForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setAuthMessage("");
+        authSubmit.disabled = true;
+
+        try {
+          const email = emailInput.value.trim();
+          const password = passwordInput.value;
+          if (authMode === "signup") {
+            if (password.length < 8) {
+              setAuthMessage("Use a password with at least 8 characters.", true);
+              return;
+            }
+
+            const displayName = displayNameInput.value.trim();
+            const { data, error } = await supabase.auth.signUp({
+              email,
+              password,
+              options: { data: { display_name: displayName } }
+            });
+            if (error) throw error;
+            if (!data.session) {
+              setAuthMessage("Account created. Check your email for a confirmation link, then sign in.");
+            }
+          } else {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+          }
+        } catch (error) {
+          setAuthMessage(error.message || "Authentication failed. Please try again.", true);
+        } finally {
+          authSubmit.disabled = false;
+        }
+      });
+
+      authSwitch.addEventListener("click", () => {
+        setAuthMode(authMode === "signup" ? "signin" : "signup");
+      });
+
+      shopButton.addEventListener("click", () => {
+        if (!currentUser) return;
+        updateShop();
+        shopPanel.hidden = !shopPanel.hidden;
+        emotePanel.hidden = true;
+        adminPanel.hidden = true;
+      });
+
+      shopClose.addEventListener("click", () => {
+        shopPanel.hidden = true;
+      });
+
+      adminButton.addEventListener("click", () => {
+        if (!isAdminAccount()) return;
+        adminPanel.hidden = !adminPanel.hidden;
+        shopPanel.hidden = true;
+        emotePanel.hidden = true;
+      });
+
+      document.querySelector("#admin-close").addEventListener("click", () => {
+        adminPanel.hidden = true;
+      });
+
+      document.querySelector("#admin-give-keys").addEventListener("click", () => {
+        if (!isAdminAccount()) return;
+        const amount = Number(adminKeyAmount.value);
+        if (!Number.isSafeInteger(amount) || amount < 1 || amount > 1000) {
+          showCombatMessage("Choose a key amount from 1 to 1000");
+          adminKeyAmount.focus();
+          return;
+        }
+        if (!Number.isSafeInteger(playerKeys + amount)) {
+          showCombatMessage("Key balance is too large");
+          return;
+        }
+        playerKeys += amount;
+        saveEconomy();
+        showCombatMessage(`🔑 Added ${amount} keys`);
+      });
+
+      document.querySelector("#admin-taco-rain").addEventListener("click", startTacoRain);
+
+      document.querySelector("#admin-random-weapon").addEventListener("click", () => {
+        if (!isAdminAccount()) return;
+        const availableWeapons = weapons.filter((weapon) => weapon.id !== "starter" && !unlockedWeapons.has(weapon.id));
+        if (availableWeapons.length === 0) {
+          showCombatMessage("You already unlocked every weapon!");
+          return;
+        }
+        const reward = availableWeapons[Math.floor(Math.random() * availableWeapons.length)];
+        unlockedWeapons.add(reward.id);
+        equipWeapon(reward.id);
+        showCombatMessage(`🎁 You got ${reward.name}!`);
+      });
+
+      shopItems.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-weapon]");
+        if (!button) return;
+        const weapon = weapons.find((item) => item.id === button.dataset.weapon);
+        if (!weapon) return;
+        if (unlockedWeapons.has(weapon.id)) {
+          equipWeapon(weapon.id);
+          return;
+        }
+        if (playerKeys < weapon.price) {
+          showCombatMessage(`You need ${weapon.price} keys to unlock ${weapon.name}`);
+          return;
+        }
+        playerKeys -= weapon.price;
+        unlockedWeapons.add(weapon.id);
+        saveEconomy();
+        equipWeapon(weapon.id);
+        showCombatMessage(`${weapon.name} unlocked!`);
+      });
+
+      emotePanel.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-emote]");
+        if (button && currentUser) triggerEmote(button.dataset.emote);
+      });
+
+      canvas.addEventListener("pointerdown", (event) => {
+        if (event.button === 0) fireWeapon();
+      });
+
+      authReset.addEventListener("click", async () => {
+        const email = emailInput.value.trim();
+        if (!email) {
+          setAuthMessage("Enter your email first so we can send a reset link.", true);
+          emailInput.focus();
+          return;
+        }
+
+        authReset.disabled = true;
+        try {
+          const { error } = await supabase.auth.resetPasswordForEmail(email);
+          if (error) throw error;
+          setAuthMessage("If an account exists for that email, a password reset link is on its way.");
+        } catch (error) {
+          setAuthMessage(error.message || "Could not send a password reset email.", true);
+        } finally {
+          authReset.disabled = false;
+        }
+      });
+
+      document.querySelector("#sign-out").addEventListener("click", async () => {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error("Could not sign out:", error);
+          showError(error.message || "Could not sign out. Please try again.");
+        }
+      });
+
+      supabase.auth.onAuthStateChange((_event, session) => {
+        window.setTimeout(() => {
+          void applyAuthSession(session);
+        }, 0);
+      });
+
+      const pressed = new Set(["q", "d", "z", "s"]);
+      let isMoving = false;
+      let isGrounded = true;
+      let isSliding = false;
+      let verticalVelocity = 0;
+
+      function onKeyDown(event) {
+        if (!currentUser) return;
+        if (event.target instanceof HTMLInputElement) return;
+        const keyName = event.key.toLowerCase();
+        if (keyName === "t" && !event.repeat) {
+          event.preventDefault();
+          emotePanel.hidden = !emotePanel.hidden;
+          shopPanel.hidden = true;
+          adminPanel.hidden = true;
+          return;
+        }
+        if (!shopPanel.hidden || !emotePanel.hidden || !adminPanel.hidden) return;
+        if (["1", "2", "3", "4"].includes(event.key) && !event.repeat) {
+          const weapon = weapons.find((item) => item.key === event.key);
+          if (weapon && unlockedWeapons.has(weapon.id)) {
+            event.preventDefault();
+            equipWeapon(weapon.id);
+          }
+          return;
+        }
+        const key = event.code === "Space" ? "space" : event.key.toLowerCase();
+        if (pressed.has(key) || key === "control" || key === "space") {
+          event.preventDefault();
+          keysDown.add(key);
+          if (key === "space" && isGrounded && !event.repeat) {
+            verticalVelocity = 8;
+            isGrounded = false;
+          }
+        }
+      }
+
+      function onKeyUp(event) {
+        keysDown.delete(event.code === "Space" ? "space" : event.key.toLowerCase());
+      }
+
+      function stopLooking(event) {
+        if (lookPointerId === null || (event && event.pointerId !== lookPointerId)) return;
+        if (canvas.hasPointerCapture(lookPointerId)) {
+          canvas.releasePointerCapture(lookPointerId);
+        }
+        lookPointerId = null;
+        canvas.style.cursor = "";
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        if (event.button === 2) {
+          event.preventDefault();
+          lookPointerId = event.pointerId;
+          canvas.setPointerCapture(event.pointerId);
+          canvas.style.cursor = "grabbing";
+        }
+      });
+      canvas.addEventListener("pointermove", (event) => {
+        if (event.pointerId !== lookPointerId) return;
+        cameraYaw -= event.movementX * 0.005;
+        cameraPitch = THREE.MathUtils.clamp(cameraPitch - event.movementY * 0.005, 0.15, 1.2);
+      });
+      canvas.addEventListener("pointerup", stopLooking);
+      canvas.addEventListener("pointercancel", stopLooking);
+      canvas.addEventListener("lostpointercapture", stopLooking);
+      canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
+      function fireWeapon() {
+        if (!currentUser || !duelActive || !isAlive || !shopPanel.hidden || !emotePanel.hidden || !adminPanel.hidden) {
+          if (currentUser && !duelActive) showCombatMessage("Weapons are available during a 1v1");
+          return;
+        }
+
+        const weapon = weapons.find((item) => item.id === equippedWeaponId) || weapons[0];
+        const now = performance.now();
+        if (now - lastShotAt < weapon.cooldown) return;
+        lastShotAt = now;
+
+        const direction = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+        const origin = avatar.position.clone().add(new THREE.Vector3(0, 1.35, 0));
+        const ray = new THREE.Ray(camera.position.clone(), direction);
+        const targetCenter = remoteAvatar.position.clone().add(new THREE.Vector3(0, 1.05, 0));
+        const hitPoint = remoteAvatar.visible
+          ? ray.intersectSphere(new THREE.Sphere(targetCenter, 0.68), new THREE.Vector3())
+          : null;
+        const hit = Boolean(hitPoint && camera.position.distanceTo(hitPoint) <= 36);
+        const shotId = crypto.randomUUID();
+
+        spawnProjectile(origin, direction, weapon.color, weapon.speed);
+        gunModel.position.z = -0.24;
+        window.setTimeout(() => {
+          gunModel.position.z = -0.15;
+        }, 70);
+        sendDuelEvent("shot", {
+          shotId,
+          weaponId: weapon.id,
+          origin: origin.toJSON(),
+          direction: direction.toJSON(),
+          targetId: hit ? activeOpponent.playerId : null,
+          hit
+        });
+      }
+
+      window.addEventListener("keydown", onKeyDown);
+      window.addEventListener("keyup", onKeyUp);
+      window.addEventListener("blur", () => keysDown.clear());
+
+      function updateMovement(delta) {
+        if (!currentUser) return;
+        const rightAmount = Number(keysDown.has("d")) - Number(keysDown.has("q"));
+        const forwardAmount = Number(keysDown.has("z")) - Number(keysDown.has("s"));
+        const direction = new THREE.Vector3(
+          Math.cos(cameraYaw) * rightAmount - Math.sin(cameraYaw) * forwardAmount,
+          0,
+          -Math.sin(cameraYaw) * rightAmount - Math.cos(cameraYaw) * forwardAmount
+        );
+        isMoving = direction.lengthSq() > 0;
+        isSliding = keysDown.has("control") && isGrounded;
+
+        if (isAlive && isMoving) {
+          direction.normalize();
+          const speed = isSliding ? 8 : 4.2;
+          avatar.position.addScaledVector(direction, speed * delta);
+          avatar.rotation.y = Math.atan2(-direction.x, -direction.z);
+        }
+
+        if (isAlive && !isGrounded) {
+          verticalVelocity -= 22 * delta;
+          avatar.position.y += verticalVelocity * delta;
+          if (avatar.position.y <= 0) {
+            avatar.position.y = 0;
+            verticalVelocity = 0;
+            isGrounded = true;
+          }
+        }
+
+        const nearbyPad = duelPads.find((pad) => Math.hypot(avatar.position.x - pad.x, avatar.position.z - pad.z) < 0.88);
+        const standingPad = isGrounded ? nearbyPad : null;
+        if (standingPad?.id !== blockedPadId) blockedPadId = null;
+        const otherPlayers = getOccupiedPlayers();
+        const otherPadOccupant = standingPad && [...otherPlayers.values()]
+          .filter((player) => player.pad === standingPad.id)
+          .sort((first, second) => first.playerId.localeCompare(second.playerId))[0];
+        const ownsContestedPad = myPad === standingPad?.id
+          && (!otherPadOccupant || playerId.localeCompare(otherPadOccupant.playerId) < 0);
+        if (otherPadOccupant && myPad === standingPad?.id && !ownsContestedPad) {
+          blockedPadId = standingPad.id;
+        }
+        const nextPad = standingPad && standingPad.id !== blockedPadId
+          && (!otherPadOccupant || ownsContestedPad)
+          ? standingPad.id
+          : null;
+
+        if (nextPad !== myPad) {
+          myPad = nextPad;
+          trackPresence();
+          updateDuelStatus();
+        }
+        if (standingPad && nextPad === null && !myPad) {
+          duelStatus.textContent = "That pad is occupied — stand on the other one";
+          duelStatus.dataset.state = "waiting";
+        }
+
+        const now = performance.now();
+        if (duelActive && now - lastPoseAt > 100) {
+          lastPoseAt = now;
+          sendDuelEvent("pose", {
+            position: avatar.position.toJSON(),
+            rotationY: avatar.rotation.y,
+            weaponId: equippedWeaponId,
+            points: playerPoints,
+            alive: isAlive
+          });
+        }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const delta = Math.min(clock.getDelta(), 0.05);
+        const elapsed = clock.elapsedTime;
+
+        updateMovement(delta);
+        updateTacoRain(delta);
+
+        const stride = isMoving && isAlive ? Math.sin(elapsed * 10) * 0.48 : 0;
+        legs[0].rotation.x = isSliding ? -0.65 : stride;
+        legs[1].rotation.x = isSliding ? -0.65 : -stride;
+        const emoteActive = elapsed < emoteUntil;
+        leftArm.rotation.x = isSliding ? 0.9
+          : emoteActive && emoteType === "wave" ? -1.8 + Math.sin(elapsed * 12) * 0.25
+          : emoteActive && emoteType === "cheer" ? -2.4
+          : emoteActive && emoteType === "dance" ? Math.sin(elapsed * 9) * 1.4
+          : -stride * 0.7;
+        rightArm.rotation.x = isSliding ? 0.9 : stride * 0.7;
+        if (emoteActive && emoteType === "cheer") rightArm.rotation.x = -2.4;
+        if (emoteActive && emoteType === "dance") rightArm.rotation.x = Math.sin(elapsed * 9 + Math.PI) * 1.4;
+        torso.scale.y = isSliding ? 0.62 : 0.92;
+        torso.position.y = isSliding ? 1.08 : 1.25;
+        body.position.y = isSliding ? 0 : isGrounded
+          ? (isMoving ? Math.abs(Math.sin(elapsed * 10)) * 0.045 : Math.sin(elapsed * 1.6) * 0.018)
+          : 0;
+        body.rotation.z = emoteActive && emoteType === "dance" ? Math.sin(elapsed * 7) * 0.16 : 0;
+        remoteAvatar.rotation.z = elapsed < remoteEmoteUntil && remoteEmoteType === "dance"
+          ? Math.sin(elapsed * 7) * 0.16
+          : 0;
+        remoteAvatar.visible = duelActive && remoteAlive && remotePoseAt > 0 && performance.now() - remotePoseAt < 1600;
+
+        for (let index = projectiles.length - 1; index >= 0; index -= 1) {
+          const projectile = projectiles[index];
+          const distance = projectile.speed * delta;
+          projectile.mesh.position.addScaledVector(projectile.direction, distance);
+          projectile.distance += distance;
+          if (projectile.distance >= projectile.maxDistance) {
+            scene.remove(projectile.mesh);
+            projectile.mesh.geometry.dispose();
+            projectile.mesh.material.dispose();
+            projectiles.splice(index, 1);
+          }
+        }
+
+        groundRing.position.x = avatar.position.x;
+        groundRing.position.z = avatar.position.z;
+
+        cameraTarget.set(avatar.position.x, 1.15, avatar.position.z);
+        const targetCameraDistance = lookPointerId === null ? cameraDistance : cameraDistance * 0.52;
+        currentCameraDistance = THREE.MathUtils.damp(currentCameraDistance, targetCameraDistance, 8, delta);
+        const horizontalDistance = Math.cos(cameraPitch) * currentCameraDistance;
+        camera.position.set(
+          cameraTarget.x + Math.sin(cameraYaw) * horizontalDistance,
+          cameraTarget.y + Math.sin(cameraPitch) * currentCameraDistance,
+          cameraTarget.z + Math.cos(cameraYaw) * horizontalDistance
+        );
+        camera.lookAt(cameraTarget);
+        coordinateLabel.textContent = `X ${avatar.position.x.toFixed(1)}   Z ${avatar.position.z.toFixed(1)}`;
+
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      animate();
+    </script>
+  </body>
+</html>
